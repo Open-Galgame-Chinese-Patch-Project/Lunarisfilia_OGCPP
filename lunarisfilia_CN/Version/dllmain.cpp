@@ -1,31 +1,8 @@
 ﻿#include "Hijack.h"
 #include "Tools.h"
-#include <detours.h>
+#include "detours.h"
 
-HMODULE exeHmodule;
 BOOL writeTable = TRUE;
-
-typedef int (WINAPI* pMultiByteToWideChar)(
-	UINT                              CodePage,
-	DWORD                             dwFlags,
-	_In_NLS_string_(cbMultiByte)LPCCH lpMultiByteStr,
-	int                               cbMultiByte,
-	LPWSTR                            lpWideCharStr,
-	int                               cchWideChar
-	);
-pMultiByteToWideChar orgMultiByteToWideChar;
-
-typedef int (WINAPI* pWideCharToMultiByte)(
-	UINT                               CodePage,
-	DWORD                              dwFlags,
-	_In_NLS_string_(cchWideChar)LPCWCH lpWideCharStr,
-	int                                cchWideChar,
-	LPSTR                              lpMultiByteStr,
-	int                                cbMultiByte,
-	LPCCH                              lpDefaultChar,
-	LPBOOL                             lpUsedDefaultChar
-);
-pWideCharToMultiByte orgWideCharToMultiByte;
 
 typedef HFONT(WINAPI* pCreateFontIndirectA)(
 	const LOGFONTA* lplf
@@ -56,7 +33,7 @@ DWORD WINAPI WriteTable(LPVOID lpParameter)
 
 	while (true)
 	{
-		BYTE flag[1];
+		BYTE flag[1]{};
 		ReadMemory((LPVOID)0x005A11C4, flag, 1);
 		if (flag[0] == 0x96)
 		{
@@ -71,50 +48,30 @@ DWORD WINAPI WriteTable(LPVOID lpParameter)
 
 HFONT WINAPI newCreateFontIndirectA(LOGFONTA* lplf)
 {
-	//if (writeTable)
-	//{
-	//	WriteTable();
-	//	writeTable = FALSE;
-	//}
-
 	lplf->lfCharSet = 0x86;
 	strcpy_s(lplf->lfFaceName, "SimHei");
 	return orgCreateFontIndirectA(lplf);
 }
 
-INT WINAPI newMultiByteToWideChar(UINT CodePage, DWORD dwFlags,PCHAR lpMultiByteStr, int cbMultiByte,LPWSTR lpWideCharStr, int cchWideChar)
-{
-	//std::cout << "newMultiByteToWideChar" << std::hex << CodePage << std::endl;
-	if (CodePage == 0x3A4)
-	{
-		CodePage = 0x3A8;
-	}
-
-	return orgMultiByteToWideChar(CodePage, dwFlags, lpMultiByteStr, cbMultiByte, lpWideCharStr, cchWideChar);
-}
-
-INT WINAPI newWideCharToMultiByte(UINT CodePage, DWORD dwFlags, PWCHAR lpWideCharStr, int cchWideChar, LPSTR lpMultiByteStr, int cbMultiByte, PCHAR lpDefaultChar, PBOOL lpUsedDefaultChar)
-{
-	//std::cout << "newWideCharToMultiByte:" << std::hex << CodePage << std::endl;
-	if (CodePage == 0x3A4)
-	{
-		CodePage = 0x3A8;
-	}
-
-	return orgWideCharToMultiByte(CodePage, dwFlags, lpWideCharStr, cchWideChar, lpMultiByteStr, cbMultiByte, lpDefaultChar, lpUsedDefaultChar);
-}
-
 LPVOID WINAPI newVirtualAlloc(LPVOID lpAddress, SIZE_T dwSize, DWORD  flAllocationType, DWORD  flProtec)
 {
 	LPVOID addr = orgVirtualAlloc(lpAddress, dwSize, flAllocationType, flProtec);
-	if (addr == (LPVOID)0x10000000)
+
+	if (dwSize == 0x00545000) //size of sarcheck.dll
 	{
-		BYTE patchCode[] = { 0xC2,0x0C,0x00,0x90,0x90,0x90 };
-		WriteMemory((LPVOID)0x00B58D09, patchCode, sizeof(patchCode));
-		DetourTransactionBegin();
-		DetourDetach(&(PVOID&)orgVirtualAlloc, newVirtualAlloc);
-		DetourTransactionCommit();
+		DWORD patchAddr = (DWORD)0x00B58D09; //entrypoint rva
+		BYTE entryPoint[3]{};
+		ReadMemory((LPVOID)patchAddr, entryPoint, sizeof(entryPoint));
+		if (entryPoint[0] == 0x51 && entryPoint[1] == 0xB9 && entryPoint[2] == 0x06) // check entrypoint
+		{
+			BYTE patchCode[] = { 0xC2,0x0C,0x00 };
+			WriteMemory((LPVOID)patchAddr, patchCode, sizeof(patchCode));
+			DetourTransactionBegin();
+			DetourDetach(&(PVOID&)orgVirtualAlloc, newVirtualAlloc);
+			DetourTransactionCommit();
+		}
 	}
+
 	return addr;
 }
 
@@ -123,8 +80,6 @@ VOID StartHook()
 	CreateThread(NULL, NULL, WriteTable, NULL, NULL, NULL);
 	orgVirtualAlloc = VirtualAlloc;
 	orgCreateFontIndirectA = CreateFontIndirectA;
-	//orgMultiByteToWideChar = MultiByteToWideChar;
-	//orgWideCharToMultiByte = WideCharToMultiByte;
 
 	DetourRestoreAfterWith();
 	DetourTransactionBegin();
