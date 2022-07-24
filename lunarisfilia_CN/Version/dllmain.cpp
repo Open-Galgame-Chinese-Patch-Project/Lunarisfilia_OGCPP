@@ -1,23 +1,8 @@
-﻿#include "Hijack.h"
-#include "Tools.h"
+﻿#include "HijackDLL.h"
+#include "DefinedFunc.h"
 #include "detours.h"
 
-BOOL writeTable = TRUE;
-
-typedef HFONT(WINAPI* pCreateFontIndirectA)(
-	const LOGFONTA* lplf
-);
-pCreateFontIndirectA orgCreateFontIndirectA;
-
-typedef LPVOID(WINAPI* pVirtualAlloc)(
-	LPVOID lpAddress,
-	SIZE_T dwSize,
-	DWORD  flAllocationType,
-	DWORD  flProtec
-	);
-pVirtualAlloc orgVirtualAlloc;
-
-DWORD WINAPI WriteTable(LPVOID lpParameter)
+VOID WINAPI WriteTable()
 {
 	BYTE table[] =
 	{
@@ -33,59 +18,67 @@ DWORD WINAPI WriteTable(LPVOID lpParameter)
 
 	while (true)
 	{
-		BYTE flag[1]{};
-		ReadMemory((LPVOID)0x005A11C4, flag, 1);
-		if (flag[0] == 0x96)
+		DWORD* flag = (DWORD*)0x005A11C4;
+		if (*flag == 0x77073096)
 		{
-			WriteMemory((LPVOID)0x005A1160, table, sizeof(table));
+			memcpy((void*)0x005A1160, table, sizeof(table));
 			break;
 		}
 		Sleep(1000);
 	}
+}
 
-	return 0;
+HANDLE WINAPI newCreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
+{
+	static LPCWSTR tarFileName1 = L".\\pac\\update1.ypf";
+	static LPCWSTR tarFileName2 = L".\\pac\\bn.ypf";
+	static LPCWSTR repFileName1 = L".\\Version.pack1";
+	static LPCWSTR repFileName2 = L".\\Version.pack2";
+	if (!wcscmp(tarFileName1, lpFileName))
+	{
+		lpFileName = repFileName1;
+	}
+	if (!wcscmp(tarFileName2, lpFileName))
+	{
+		lpFileName = repFileName2;
+	}
+
+	return rawCreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
 }
 
 HFONT WINAPI newCreateFontIndirectA(LOGFONTA* lplf)
 {
 	lplf->lfCharSet = 0x86;
 	strcpy_s(lplf->lfFaceName, "SimHei");
-	return orgCreateFontIndirectA(lplf);
+	return rawCreateFontIndirectA(lplf);
 }
 
 LPVOID WINAPI newVirtualAlloc(LPVOID lpAddress, SIZE_T dwSize, DWORD  flAllocationType, DWORD  flProtec)
 {
 	if (dwSize == 0x00545000) //alloc size of sarcheck.dll
 	{
-		DWORD patchAddr = (DWORD)0x00B58D09; //entrypoint rva
-		BYTE entryPoint[3]{};
-		ReadMemory((LPVOID)patchAddr, entryPoint, sizeof(entryPoint));
-		if (entryPoint[0] == 0x51 && entryPoint[1] == 0xB9 && entryPoint[2] == 0x06) // check entrypoint
+		if (*(DWORD*)0x00B58D09 == 0x0006B951) // check entrypoint
 		{
-			BYTE patchCode[] = { 0xC2,0x0C,0x00 };
-			WriteMemory((LPVOID)patchAddr, patchCode, sizeof(patchCode));
+			*(DWORD*)0x00B58D09 = 0x90000CC2; // entrypoint => ret 0xC
 			DetourTransactionBegin();
-			DetourDetach(&(PVOID&)orgVirtualAlloc, newVirtualAlloc);
+			DetourDetach(&(PVOID&)rawVirtualAlloc, newVirtualAlloc);
 			DetourTransactionCommit();
 		}
 	}
 
-	return orgVirtualAlloc(lpAddress, dwSize, flAllocationType, flProtec);
+	return rawVirtualAlloc(lpAddress, dwSize, flAllocationType, flProtec);
 }
 
 VOID StartHook()
 {
-	CreateThread(NULL, NULL, WriteTable, NULL, NULL, NULL);
-	orgVirtualAlloc = VirtualAlloc;
-	orgCreateFontIndirectA = CreateFontIndirectA;
+	CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)WriteTable, NULL, NULL, NULL);
 
 	DetourRestoreAfterWith();
 	DetourTransactionBegin();
 	DetourUpdateThread(GetCurrentThread());
-
-	DetourAttach(&(PVOID&)orgCreateFontIndirectA, newCreateFontIndirectA);
-	DetourAttach(&(PVOID&)orgVirtualAlloc, newVirtualAlloc);
-
+	DetourAttach(&(PVOID&)rawCreateFontIndirectA, newCreateFontIndirectA);
+	DetourAttach(&(PVOID&)rawVirtualAlloc, newVirtualAlloc);
+	DetourAttach(&(PVOID&)rawCreateFileW, newCreateFileW);
 	DetourTransactionCommit();
 }
 
@@ -94,7 +87,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-		//SetConsole();
 		StartHook();
 		CreateHijack();
 		break;

@@ -31,19 +31,13 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="hijack.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Tools.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Lib.h">
+    <ClInclude Include="HijackDLL.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\Detours\detours.h">
       <Filter>Detours</Filter>
     </ClInclude>
-    <ClInclude Include="resource.h">
+    <ClInclude Include="DefinedFunc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
