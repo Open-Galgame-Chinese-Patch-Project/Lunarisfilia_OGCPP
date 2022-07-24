@@ -55,9 +55,7 @@ HFONT WINAPI newCreateFontIndirectA(LOGFONTA* lplf)
 
 LPVOID WINAPI newVirtualAlloc(LPVOID lpAddress, SIZE_T dwSize, DWORD  flAllocationType, DWORD  flProtec)
 {
-	LPVOID addr = orgVirtualAlloc(lpAddress, dwSize, flAllocationType, flProtec);
-
-	if (dwSize == 0x00545000) //size of sarcheck.dll
+	if (dwSize == 0x00545000) //alloc size of sarcheck.dll
 	{
 		DWORD patchAddr = (DWORD)0x00B58D09; //entrypoint rva
 		BYTE entryPoint[3]{};
@@ -72,7 +70,7 @@ LPVOID WINAPI newVirtualAlloc(LPVOID lpAddress, SIZE_T dwSize, DWORD  flAllocati
 		}
 	}
 
-	return addr;
+	return orgVirtualAlloc(lpAddress, dwSize, flAllocationType, flProtec);
 }
 
 VOID StartHook()
