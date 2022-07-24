@@ -40,62 +40,6 @@ VOID WINAPI SetConsole()
 	std::locale::global(std::locale(""));
 }
 
-VOID WriteHookCode(DWORD oldAddr, DWORD tarAddr, DWORD lenWritten, BOOL modeSwitch)
-{
-	DWORD oldProtect;
-	VirtualProtect((LPVOID)oldAddr, lenWritten, PAGE_EXECUTE_READWRITE, &oldProtect);
-
-	DWORD rawAddr = tarAddr - oldAddr - 5;
-	BYTE code[5] = { 0 };
-
-	if (modeSwitch)
-	{
-		code[0] = 0xE9;
-	}
-	else
-	{
-		code[0] = 0xE8;
-	}
-
-	memcpy(&code[1], &rawAddr, 4);
-	memcpy((void*)oldAddr, code, 5);
-
-	BYTE nop = 0x90;
-	for (size_t i = 5; i < lenWritten; i++)
-	{
-		memcpy((void*)(oldAddr + i), &nop, sizeof(nop));
-	}
-}
-
-DWORD MemSearch(DWORD beginAddr, VOID* searchCode, INT lenOfCode, BOOL clockWise)
-{
-	for (beginAddr; 1; )
-	{
-		if (beginAddr < 0x7FFF0000 && beginAddr > 0x00010000)
-		{
-			DWORD oldProtect = 0;
-			VirtualProtect((LPVOID)beginAddr, lenOfCode, PAGE_EXECUTE_READWRITE, &oldProtect);
-			if (!memcmp(searchCode, (void*)beginAddr, lenOfCode))
-			{
-				return beginAddr;
-			}
-
-			if (clockWise)
-			{
-				beginAddr++;
-			}
-			else
-			{
-				beginAddr--;
-			}
-		}
-		else
-		{
-			return 0;
-		}
-	}
-}
-
 VOID WriteMemory(LPVOID lpAddress, LPCVOID lpBuffer, SIZE_T nSize)
 {
 	DWORD oldProtect;
