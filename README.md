@@ -17,3 +17,5 @@ bn.ypf ， update1.ypf
 **Version.dll**  
 复制这三个文件到日文版游戏目录下  
 运行 **lunarisfilia.exe** 即可
+
+![image](https://github.com/Dir-A/lunarisfilia_CN/blob/main/test.png)
