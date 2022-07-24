@@ -9,7 +9,7 @@ bn.ypf ， update1.ypf
 下载原始的汉化补丁，把 bn.ypf ， update1.ypf 两封包拷贝出来  
 **bn.ypf** 重新命名为 **Version.pack2**  
 **update1.ypf** 重新命名为 **Version.pack1**  
-并下载 **release** 里的 **Version.dll**  
+并下载 [**release**](https://github.com/Dir-A/lunarisfilia_CN/releases) 里的 **Version.dll**  
 
 重组后的汉化补丁，包含三个文件  
 **Version.pack1**  
